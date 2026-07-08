@@ -1,7 +1,6 @@
 import address_matcher as am
 import parcels
 import os
-from pathlib import Path
 from datetime import datetime
 
 # main
