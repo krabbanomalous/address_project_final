@@ -3,6 +3,7 @@ import os
 import sys
 import psycopg2
 import re
+import time
 
 load_dotenv()
 
@@ -131,6 +132,8 @@ def get_address():
 
         if user_input is not None and not user_input.lower() in ("quit", "exit"):
             is_success = False
+            search_start = int(time.time() * 1000)
+            search_end = int(time.time() * 1000)
 
             normed = normalize_address(user_input)
             non_normed = user_input
@@ -152,9 +155,11 @@ def get_address():
                 is_success = True
                 non_normed, non_norm_conf = format_result(row2)
             else:
-                return True, normed, norm_conf, user_input
+                search_end = int(time.time() * 1000)
+                return True, normed, norm_conf, user_input, (search_end - search_start)
 
-            return (is_success, normed, norm_conf, user_input) if norm_conf > non_norm_conf else (is_success, non_normed, non_norm_conf, user_input)
+            search_end = int(time.time() * 1000)
+            return (is_success, normed, norm_conf, user_input, search_end - search_start) if norm_conf > non_norm_conf else (is_success, non_normed, non_norm_conf, user_input, search_end - search_start)
         else:
             if user_input.lower() in ("quit", "exit"):
                 return False, "User aborted.", 0

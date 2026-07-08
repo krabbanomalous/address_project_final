@@ -6,7 +6,7 @@ from datetime import datetime
 
 # main
 if __name__ == '__main__':
-    succ, addr, confidence, start_input = am.get_address()
+    succ, addr, confidence, start_input, search_time = am.get_address()
     if succ and confidence >= 0.1:
         # displays info
         conf_format = str(round(confidence * 1000) / 10)
@@ -18,8 +18,6 @@ if __name__ == '__main__':
             geometry = geometry.replace("\"", "")
 
             print("\nADDRESS FOUND:\n=====================================\n" + addr + f"({latitude:.5f}, {longitude:.5f})", ("\n\nConfidence: " + conf_format + "%\n"))
-
-            parcels.draw_plot(addr, geometry)
         else:
             print(f"Unable to match address to \"{start_input}\".")
 
@@ -32,11 +30,15 @@ if __name__ == '__main__':
         try:
             with open(log_path, "a", encoding="utf-8") as file:
                 if match_success:
-                    file.write(f"\n{formatted_ts}\nINPUT: {start_input} \n\n{addr}\nCOORDINATES: ({latitude:.5f}, {longitude:.5f})\nPLOT SHAPE: {geometry}\nCONFIDENCE: {conf_format}%\n=================== [[]] ===================")
+                    file.write(f"\n{formatted_ts}\nINPUT: {start_input}\nSEARCH TIME: {search_time} ms \n\n{addr}\nCOORDINATES: ({latitude:.5f}, {longitude:.5f})\nPLOT SHAPE: {geometry}\nCONFIDENCE: {conf_format}%\n=================== [[]] ===================")
                 else:
-                    file.write(f"\n{formatted_ts}\nINPUT: {start_input} \n\nFailed to return address with input.\n=================== [[]] ===================")
+                    file.write(f"\n{formatted_ts}\nINPUT: {start_input}\nSEARCH TIME: {search_time} ms \n\nFailed to return address with input.\n=================== [[]] ===================")
             print("Logged to file.")
         except Exception as e:
             print(f"Logging failed: {e}")
+
+        # displays plot
+        if match_success == True:
+            parcels.draw_plot(addr, geometry)
     else:
         print(f"Unable to match address to \"{start_input}\".")
