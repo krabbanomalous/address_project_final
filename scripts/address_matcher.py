@@ -152,9 +152,9 @@ def get_address():
                 is_success = True
                 non_normed, non_norm_conf = format_result(row2)
             else:
-                return True, normed, norm_conf
+                return True, normed, norm_conf, user_input
 
-            return (is_success, normed, norm_conf) if norm_conf > non_norm_conf else (is_success, non_normed, non_norm_conf)
+            return (is_success, normed, norm_conf, user_input) if norm_conf > non_norm_conf else (is_success, non_normed, non_norm_conf, user_input)
         else:
             if user_input.lower() in ("quit", "exit"):
                 return False, "User aborted.", 0

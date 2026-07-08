@@ -58,4 +58,6 @@ def draw_plot(address, plot):
     ax.set_ylabel("Latitude")
     ax.set_title(address)
     ax.set_aspect("equal")
+
+    fig.canvas.manager.set_window_title(address)
     plt.show()
