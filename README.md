@@ -1,5 +1,7 @@
 To use, run scripts\main.py through your operating system's terminal.
 
+Each use is logged in a document named *logs.txt* created inside the *scripts* folder after the first run.
+
 ## Modules:
 - **address_compiler.py**: Pulls from TxGIO, downloads all readable files from ZIP files of all supported counties.
 - **address_matcher.py**: Takes input from user and attempts to match to closest address.
