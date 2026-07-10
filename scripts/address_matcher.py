@@ -34,16 +34,19 @@ NORMALIZED_ROAD_ENDS = {
 FALLBACK_MIN_SIMILARITY = 0.15
  
 # normalizes address
-def normalize_address(addr, invert=False):
-    fin_addr = addr.lower()
- 
+def normalize_address(addr: str, invert: bool = False) -> str:
+    addr = addr.lower()
+
     for long_form, short_form in NORMALIZED_ROAD_ENDS.items():
-        for long_form, short_form in NORMALIZED_ROAD_ENDS.items():
-            pattern = short_form if invert else long_form
-            replacement = long_form if invert else short_form
-            fin_addr = re.sub(rf"\b{re.escape(pattern)}\b", replacement, fin_addr)
- 
-    return fin_addr
+        pattern = short_form if invert else long_form
+        replacement = long_form if invert else short_form
+        addr = re.sub(
+            rf"\b{re.escape(pattern)}\b",
+            replacement,
+            addr
+        )
+
+    return addr.upper()
  
 # connects to database
 def get_connection():
@@ -60,6 +63,10 @@ def ensure_trgm_extension(conn):
  
 # finds closest address
 def find_closest_address(conn, user_input):
+    starting_number = re.match(r"\d+", user_input)
+    starting_number = starting_number.group()
+    street_name = user_input.split()[1]
+
     query = """
         SELECT
             "Full_Addr",
@@ -67,40 +74,22 @@ def find_closest_address(conn, user_input):
             "County",
             "State",
             "Post_Code",
-            similarity("Full_Addr", %(input)s) AS sim
+            similarity("full_addr_norm", %(input)s) AS sim
         FROM public.addresses
-        WHERE "Full_Addr" %% %(input)s
+        WHERE "Add_Number" = %(house_num)s
+            AND "Full_Addr" %% %(input)s
+            AND "St_Name" %% %(street_name)s
         ORDER BY sim DESC
         LIMIT 1;
     """
  
     with conn.cursor() as cur:
-        cur.execute(query, {"input": user_input})
+        cur.execute(query, {"input": user_input, "house_num": starting_number, "street_name": street_name})
         row = cur.fetchone()
     
     if row is not None:
         return row
- 
-    # no clear match
-    fallback_query = """
-        SELECT
-            "Full_Addr",
-            "Post_Comm",
-            "County",
-            "State",
-            "Post_Code",
-            similarity("Full_Addr", %(input)s) AS sim
-        FROM public.addresses
-        ORDER BY sim DESC
-        LIMIT 1;
-    """
- 
-    with conn.cursor() as cur:
-        cur.execute(fallback_query, {"input": user_input})
-        row = cur.fetchone()
- 
-    if row and row[-1] is not None and row[-1] >= FALLBACK_MIN_SIMILARITY:
-        return row
+    
     return None
  
 # formats result
@@ -122,12 +111,18 @@ def get_address():
  
         input_accepted = False
         user_input = ""
+        contents = user_input.split()
  
         while not input_accepted:
             user_input = input("Please enter address: ").strip()
-            input_accepted = any(c.isalpha() for c in user_input) and any(c.isdigit() for c in user_input)
+            starting_number = re.match(r"\d+", user_input)
+
+            input_accepted = any(c.isalpha() for c in user_input) and any(c.isdigit() for c in user_input) and starting_number != None
             if input_accepted == False and not user_input.lower() in ("quit", "exit"):
-                print("Input must contain at least one (1) number and one (1) letter.")
+                if starting_number != None:
+                    print("Input must contain at least one (1) number and one (1) letter.")
+                else:
+                    print("Input must start with a number.")
             else:
                 input_accepted = True
  
@@ -136,31 +131,17 @@ def get_address():
             search_start = int(time.time() * 1000)
             search_end = int(time.time() * 1000)
  
-            normed = normalize_address(user_input)
-            non_normed = user_input
- 
-            norm_conf = 0
-            non_norm_conf = 0
- 
-            # normed address
-            row1 = find_closest_address(conn, normed.upper())
-            if row1:
-                is_success = True
-                normed, norm_conf = format_result(row1)
-            else:
-                normed = user_input
+            addr = normalize_address(user_input)
+            conf = 0
  
             # non-normed address
-            row2 = find_closest_address(conn, non_normed.upper())
-            if row2:
+            row = find_closest_address(conn, addr.upper())
+            if row:
                 is_success = True
-                non_normed, non_norm_conf = format_result(row2)
-            else:
-                search_end = int(time.time() * 1000)
-                return True, normed, norm_conf, user_input, (search_end - search_start)
+                addr, conf = format_result(row)
  
             search_end = int(time.time() * 1000)
-            return (is_success, normed, norm_conf, user_input, search_end - search_start) if norm_conf > non_norm_conf else (is_success, non_normed, non_norm_conf, user_input, search_end - search_start)
+            return (is_success, addr, conf, user_input, search_end - search_start)
         else:
             if user_input.lower() in ("quit", "exit"):
                 return False, "User aborted.", 0
