@@ -5,17 +5,35 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy import inspect
 from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 
 load_dotenv()
 
-password = os.getenv("DB_PASSWORD")
+password = os.getenv("SUPABASE_KEY")
+
+SUPABASE_HOST = os.getenv("SUPABASE_HOST")       # e.g. aws-0-us-east-1.pooler.supabase.com
+SUPABASE_PORT = os.getenv("SUPABASE_PORT", "5432")
+SUPABASE_DB   = os.getenv("SUPABASE_NAME", "postgres")
+SUPABASE_USER = os.getenv("SUPABASE_USER")       # e.g. postgres.<project-ref>
+SUPABASE_PASSWORD = os.getenv("SUPABASE_PASSWORD")
 
 DATE_COLUMNS = ["DateUpdate", "Date_Acq"]
-DB_URL = f"postgresql+psycopg2://postgres:{password}@localhost:5432/tx_addrs"
-
+DB_URL = (
+    f"postgresql+psycopg2://{SUPABASE_USER}:{SUPABASE_PASSWORD}"
+    f"@{SUPABASE_HOST}:{SUPABASE_PORT}/{SUPABASE_DB}"
+    f"?sslmode=require"
+)
 # gets engine
 def get_engine():
-    return create_engine(DB_URL)
+    return create_engine(
+        DB_URL,
+        poolclass=NullPool,  # important if you're using the pgbouncer/transaction pooler port (6543)
+    )
+
+def ensure_postgis(engine):
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        conn.commit()
 
 # gets loaded counties to skip
 def get_loaded_counties(engine):
@@ -26,8 +44,9 @@ def get_loaded_counties(engine):
         return {row[0] for row in result}
 
 # loads all counties
-def load_all_counties(counties, limit = 254):
+def load_all_counties(counties, limit=254):
     engine = get_engine()
+    ensure_postgis(engine)
     loaded = get_loaded_counties(engine)
 
     with engine.connect() as conn:
@@ -42,15 +61,15 @@ def load_all_counties(counties, limit = 254):
             continue
 
         print(f"Processing {county_name}...")
- 
+
         try:
             out_dir = ac.download_layer_files(county)
         except Exception as e:
             print(f"  [!] Skipping {county_name} after error: {e}")
             continue
-    
+
         layers = ac.read_layers(out_dir, county_name)
- 
+
         for layer_name, gdf in layers.items():
             if gdf.empty:
                 continue
@@ -70,7 +89,7 @@ def load_all_counties(counties, limit = 254):
                 index=False,
             )
             print(f"  -> wrote {len(gdf)} rows to '{layer_name}'")
- 
+
         processed += 1
         if limit and processed >= limit:
             break
