@@ -1,0 +1,1 @@
+To use, run scripts\main.py through your operating system's terminal.
