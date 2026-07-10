@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import geopandas as gpd
 import os
 from remotezip import RemoteZip
